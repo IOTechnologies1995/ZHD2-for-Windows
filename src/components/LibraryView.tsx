@@ -1,7 +1,8 @@
 import { DragEvent, useMemo, useState } from 'react';
 import {
+  FilePlus2,
   Film,
-  FolderPlus,
+  FolderOpen,
   Heart,
   Music,
   Play,
@@ -10,6 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { MediaItem } from '../types';
+import { extractFilesFromDataTransfer, ImportedFileEntry } from '../utils/folderImport';
 import { formatDuration } from '../utils/format';
 import { MediaArt } from './MediaArt';
 
@@ -23,6 +25,8 @@ interface LibraryViewProps {
   onPlayItem: (item: MediaItem, openNowPlaying?: boolean) => void;
   onToggleFavorite: (id: string) => void;
   onImportFiles: (files: FileList | null) => void;
+  onImportEntries: (entries: ImportedFileEntry[]) => void;
+  onTriggerFolderImport: () => void;
   onDeleteLocalItem: (id: string) => void;
 }
 
@@ -34,6 +38,8 @@ export function LibraryView({
   onPlayItem,
   onToggleFavorite,
   onImportFiles,
+  onImportEntries,
+  onTriggerFolderImport,
   onDeleteLocalItem,
 }: LibraryViewProps) {
   const [activeTab, setActiveTab] = useState<PivotTab>('songs');
@@ -52,13 +58,17 @@ export function LibraryView({
         item.title.toLowerCase().includes(normalizedQuery) ||
         item.artist.toLowerCase().includes(normalizedQuery) ||
         item.album.toLowerCase().includes(normalizedQuery) ||
-        item.genre.toLowerCase().includes(normalizedQuery)
+        item.genre.toLowerCase().includes(normalizedQuery) ||
+        (item.folderName ?? '').toLowerCase().includes(normalizedQuery)
       );
     });
   }, [mediaItems, activeTab, normalizedQuery]);
 
   const albums = useMemo(() => {
-    const map = new Map<string, { album: string; artist: string; year: number; artwork: string; items: MediaItem[] }>();
+    const map = new Map<
+      string,
+      { album: string; artist: string; year: number; artwork: string; items: MediaItem[] }
+    >();
     for (const item of mediaItems) {
       if (item.type !== 'audio') continue;
       if (
@@ -108,11 +118,12 @@ export function LibraryView({
     return Array.from(map.values());
   }, [mediaItems, normalizedQuery]);
 
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files?.length) {
-      onImportFiles(e.dataTransfer.files);
+    const entries = await extractFilesFromDataTransfer(e.dataTransfer);
+    if (entries.length > 0) {
+      onImportEntries(entries);
     }
   };
 
@@ -131,8 +142,12 @@ export function LibraryView({
         e.preventDefault();
         setIsDragging(true);
       }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) setIsDragging(false);
+      }}
+      onDrop={(e) => {
+        void handleDrop(e);
+      }}
     >
       <div className="max-w-[1380px] mx-auto flex flex-col gap-6">
         {/* Zune HD Panorama Pivot Header */}
@@ -163,7 +178,7 @@ export function LibraryView({
           </div>
 
           {/* Search & Import Toolbar */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="relative">
               <Search className="w-4 h-4 text-[var(--zhd-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -172,16 +187,26 @@ export function LibraryView({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Filter library..."
                 style={{ borderRadius: 'var(--zhd-radius)' }}
-                className="w-56 pl-9 pr-3 py-2 text-sm bg-[var(--zhd-surface)] border border-[var(--zhd-border)] text-[var(--zhd-text)] placeholder:text-[var(--zhd-muted)]"
+                className="w-52 pl-9 pr-3 py-2 text-sm bg-[var(--zhd-surface)] border border-[var(--zhd-border)] text-[var(--zhd-text)] placeholder:text-[var(--zhd-muted)]"
               />
             </div>
 
-            <label
+            <button
+              type="button"
+              onClick={onTriggerFolderImport}
               style={{ borderRadius: 'var(--zhd-radius)' }}
               className="px-4 py-2 text-xs font-semibold bg-[var(--zhd-accent)] text-[var(--zhd-accent-fg)] hover:bg-[var(--zhd-accent-hover)] flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer transition-colors"
             >
-              <FolderPlus className="w-4 h-4" />
-              <span>Add Media</span>
+              <FolderOpen className="w-4 h-4" />
+              <span>Import Folder</span>
+            </button>
+
+            <label
+              style={{ borderRadius: 'var(--zhd-radius)' }}
+              className="px-4 py-2 text-xs font-medium border border-[var(--zhd-border)] bg-[var(--zhd-surface)] text-[var(--zhd-text)] hover:border-[var(--zhd-accent)] flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+            >
+              <FilePlus2 className="w-4 h-4 text-[var(--zhd-accent)]" />
+              <span>Add Files</span>
               <input
                 type="file"
                 multiple
@@ -200,7 +225,7 @@ export function LibraryView({
         {isDragging && (
           <div className="p-8 border-2 border-dashed border-[var(--zhd-accent)] bg-[var(--zhd-surface)] flex items-center justify-center gap-3 text-sm font-medium text-[var(--zhd-text)]">
             <Upload className="w-5 h-5 text-[var(--zhd-accent)]" />
-            <span>Drop audio or video files anywhere to import into your local ZHD2 library</span>
+            <span>Drop media files or entire folders to import them into your ZHD2 library</span>
           </div>
         )}
 
@@ -350,25 +375,37 @@ export function LibraryView({
                 </h3>
                 <p className="text-sm text-[var(--zhd-muted)] max-w-md">
                   {activeTab === 'local'
-                    ? 'Import MP3, FLAC, WAV, OGG, MP4, or WEBM files from your PC. Imported assets are persisted in local storage for instant ZHD2 playback.'
-                    : 'Try clearing your search query or importing local audio and video files.'}
+                    ? 'Import individual MP3, FLAC, WAV, OGG, MP4, or WEBM files — or pick an entire folder (or drag and drop a folder here) to organize it into your ZHD2 library.'
+                    : 'Try clearing your search query or importing local audio and video folders.'}
                 </p>
-                <label
-                  style={{ borderRadius: 'var(--zhd-radius)' }}
-                  className="mt-2 px-4 py-2 text-xs font-semibold bg-[var(--zhd-accent)] text-[var(--zhd-accent-fg)] hover:bg-[var(--zhd-accent-hover)] cursor-pointer"
-                >
-                  Import Local Media Files
-                  <input
-                    type="file"
-                    multiple
-                    accept="audio/*,video/*,.mp3,.flac,.wav,.ogg,.m4a,.mp4,.webm,.mkv,.mov"
-                    className="hidden"
-                    onChange={(e) => {
-                      onImportFiles(e.target.files);
-                      e.currentTarget.value = '';
-                    }}
-                  />
-                </label>
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={onTriggerFolderImport}
+                    style={{ borderRadius: 'var(--zhd-radius)' }}
+                    className="px-4 py-2 text-xs font-semibold bg-[var(--zhd-accent)] text-[var(--zhd-accent-fg)] hover:bg-[var(--zhd-accent-hover)] flex items-center gap-2 cursor-pointer"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    <span>Import Folder</span>
+                  </button>
+                  <label
+                    style={{ borderRadius: 'var(--zhd-radius)' }}
+                    className="px-4 py-2 text-xs font-medium border border-[var(--zhd-border)] bg-[var(--zhd-bg)] text-[var(--zhd-text)] hover:border-[var(--zhd-accent)] flex items-center gap-2 cursor-pointer"
+                  >
+                    <FilePlus2 className="w-4 h-4 text-[var(--zhd-accent)]" />
+                    <span>Add Files</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="audio/*,video/*,.mp3,.flac,.wav,.ogg,.m4a,.mp4,.webm,.mkv,.mov"
+                      className="hidden"
+                      onChange={(e) => {
+                        onImportFiles(e.target.files);
+                        e.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
             ) : (
               <div className="border border-[var(--zhd-border)] bg-[var(--zhd-surface)] overflow-x-auto">
@@ -377,7 +414,7 @@ export function LibraryView({
                     <tr className="border-b border-[var(--zhd-border)] text-xs font-medium text-[var(--zhd-muted)]">
                       <th className="py-3 px-4 w-12">#</th>
                       <th className="py-3 px-4">Title</th>
-                      <th className="py-3 px-4 hidden sm:table-cell">Album</th>
+                      <th className="py-3 px-4 hidden sm:table-cell">Album / Folder</th>
                       <th className="py-3 px-4 hidden md:table-cell">Format</th>
                       <th className="py-3 px-4 text-right">Time</th>
                       <th className="py-3 px-4 w-24 text-right">Actions</th>

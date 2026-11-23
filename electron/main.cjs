@@ -2,7 +2,6 @@ const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 
 const CONFIG_DIR = path.join(app.getPath('appData'), 'ZHD2');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -112,24 +111,12 @@ app.on('window-all-closed', () => {
 ipcMain.handle('zhd2:select-folder', async (_event, title) => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: title || 'Select Folder',
-    properties: ['openDirectory', 'createDirectory'],
+    properties: ['openDirectory'],
   });
   if (result.canceled || result.filePaths.length === 0) {
     return null;
   }
   return result.filePaths[0];
-});
-
-// IPC: Return standard Windows user directories
-ipcMain.handle('zhd2:get-default-paths', async () => {
-  const home = os.homedir();
-  return {
-    installDir: path.join(process.env.ProgramFiles || 'C:\\Program Files', 'ZHD2'),
-    musicDir: app.getPath('music') || path.join(home, 'Music'),
-    videoDir: app.getPath('videos') || path.join(home, 'Videos'),
-    assetsCacheDir: path.join(app.getPath('userData'), 'Assets'),
-    configDir: CONFIG_DIR,
-  };
 });
 
 // IPC: Save %APPDATA%\ZHD2\config.json

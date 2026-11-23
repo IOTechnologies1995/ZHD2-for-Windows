@@ -1,8 +1,8 @@
 import {
   Disc3,
-  Download,
+  FilePlus2,
   Film,
-  FolderPlus,
+  FolderOpen,
   MonitorPlay,
   Palette,
   Play,
@@ -22,6 +22,7 @@ interface QuickplayHubProps {
   onNavigate: (section: NavSection) => void;
   onPlayItem: (item: MediaItem, openNowPlaying?: boolean) => void;
   onImportFiles: (files: FileList | null) => void;
+  onTriggerFolderImport: () => void;
   onLaunchScreensaver: () => void;
 }
 
@@ -34,11 +35,15 @@ export function QuickplayHub({
   onNavigate,
   onPlayItem,
   onImportFiles,
+  onTriggerFolderImport,
   onLaunchScreensaver,
 }: QuickplayHubProps) {
   const musicItems = mediaItems.filter((m) => m.type === 'audio');
   const videoItems = mediaItems.filter((m) => m.type === 'video');
   const localItems = mediaItems.filter((m) => m.source === 'local');
+  const importedFolderCount = new Set(
+    localItems.map((i) => i.folderName).filter(Boolean)
+  ).size;
 
   const recentItems = config.recentIds
     .map((id) => mediaItems.find((m) => m.id === id))
@@ -51,11 +56,6 @@ export function QuickplayHub({
     { label: 'now playing', count: isPlaying ? 'playing' : 'paused', action: () => onNavigate('now-playing') },
     { label: 'equalizer', count: config.eqEnabled ? 'active' : 'bypass', action: () => onNavigate('equalizer') },
     { label: 'customize', count: scheme.origin, action: () => onNavigate('customize') },
-    {
-      label: 'windows setup',
-      count: config.windowsInstall.installed ? 'configured' : 'wizard',
-      action: () => onNavigate('windows-setup'),
-    },
   ];
 
   return (
@@ -92,24 +92,36 @@ export function QuickplayHub({
             ))}
           </nav>
 
-          {/* Local Import Trigger */}
-          <label
-            style={{ borderRadius: 'var(--zhd-radius)' }}
-            className="flex items-center justify-center gap-2.5 px-4 py-3 border border-[var(--zhd-border)] bg-[var(--zhd-surface)] hover:border-[var(--zhd-accent)] text-sm font-medium text-[var(--zhd-text)] cursor-pointer transition-colors"
-          >
-            <FolderPlus className="w-4 h-4 text-[var(--zhd-accent)]" />
-            <span>Import Local Audio & Video</span>
-            <input
-              type="file"
-              multiple
-              accept="audio/*,video/*,.mp3,.flac,.wav,.ogg,.m4a,.mp4,.webm,.mkv,.mov"
-              className="hidden"
-              onChange={(e) => {
-                onImportFiles(e.target.files);
-                e.currentTarget.value = '';
-              }}
-            />
-          </label>
+          {/* Local Folder & File Import Triggers */}
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={onTriggerFolderImport}
+              style={{ borderRadius: 'var(--zhd-radius)' }}
+              className="flex items-center justify-center gap-2.5 px-4 py-3 bg-[var(--zhd-accent)] text-[var(--zhd-accent-fg)] hover:bg-[var(--zhd-accent-hover)] text-sm font-semibold cursor-pointer transition-colors"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>Import Media Folder</span>
+            </button>
+
+            <label
+              style={{ borderRadius: 'var(--zhd-radius)' }}
+              className="flex items-center justify-center gap-2.5 px-4 py-3 border border-[var(--zhd-border)] bg-[var(--zhd-surface)] hover:border-[var(--zhd-accent)] text-sm font-medium text-[var(--zhd-text)] cursor-pointer transition-colors"
+            >
+              <FilePlus2 className="w-4 h-4 text-[var(--zhd-accent)]" />
+              <span>Import Audio & Video Files</span>
+              <input
+                type="file"
+                multiple
+                accept="audio/*,video/*,.mp3,.flac,.wav,.ogg,.m4a,.mp4,.webm,.mkv,.mov"
+                className="hidden"
+                onChange={(e) => {
+                  onImportFiles(e.target.files);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </div>
         </aside>
 
         {/* Right Column: Windows 8 Metro Architectural Live Tile Canvas */}
@@ -150,10 +162,10 @@ export function QuickplayHub({
               </div>
             </button>
 
-            {/* Tile 2 (2x1): Windows EXE Installation Wizard Tile */}
+            {/* Tile 2 (2x1): Import Local Folder Metro Tile */}
             <button
               type="button"
-              onClick={() => onNavigate('windows-setup')}
+              onClick={onTriggerFolderImport}
               style={{
                 borderRadius: 'var(--zhd-radius)',
                 backgroundColor: scheme.accent,
@@ -162,19 +174,17 @@ export function QuickplayHub({
               className="md:col-span-2 p-5 flex flex-col justify-between text-left cursor-pointer hover:brightness-95 transition-all"
             >
               <div className="flex items-center justify-between">
-                <Download className="w-6 h-6" />
+                <FolderOpen className="w-6 h-6" />
                 <span className="font-mono-num text-xs opacity-90">
-                  {config.windowsInstall.architecture.toUpperCase()} EXE
+                  {importedFolderCount > 0 ? `${importedFolderCount} folders` : `${localItems.length} local`}
                 </span>
               </div>
               <div>
                 <div className="font-display text-xl font-semibold leading-tight">
-                  Windows Installer
+                  Import Folder
                 </div>
                 <div className="text-xs opacity-90 mt-1">
-                  {config.windowsInstall.installed
-                    ? 'Configured · Export EXE build kit'
-                    : 'Set local paths, assets & config'}
+                  Scan albums, music & video directories
                 </div>
               </div>
             </button>
@@ -356,7 +366,7 @@ export function QuickplayHub({
             </div>
           </div>
 
-          {/* Highlight Note when idle screensaver is ready */}
+          {/* Quiet info line */}
           <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-[var(--zhd-border)] text-xs text-[var(--zhd-muted)]">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[var(--zhd-accent)] shrink-0" />
@@ -369,7 +379,7 @@ export function QuickplayHub({
               </span>
             </div>
             <span className="font-mono-num">
-              {mediaItems.length} total assets ({localItems.length} imported locally)
+              {mediaItems.length} total items ({localItems.length} imported locally)
             </span>
           </div>
         </section>

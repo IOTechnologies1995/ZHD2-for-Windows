@@ -3,6 +3,7 @@ import { NavSection } from '../types';
 interface TopBarProps {
   activeSection: NavSection;
   onNavigate: (section: NavSection) => void;
+  onTriggerFolderImport: () => void;
 }
 
 const NAV_ITEMS: Array<{ id: NavSection; label: string }> = [
@@ -13,7 +14,11 @@ const NAV_ITEMS: Array<{ id: NavSection; label: string }> = [
   { id: 'customize', label: 'Customize' },
 ];
 
-export function TopBar({ activeSection, onNavigate }: TopBarProps) {
+export function TopBar({
+  activeSection,
+  onNavigate,
+  onTriggerFolderImport,
+}: TopBarProps) {
   return (
     <header className="h-14 shrink-0 flex items-center justify-between gap-8 px-6 border-b border-[var(--zhd-border)] bg-[var(--zhd-surface)]">
       {/* Zone 1: Single-line Brand Wordmark */}
@@ -56,15 +61,11 @@ export function TopBar({ activeSection, onNavigate }: TopBarProps) {
       <div className="shrink-0">
         <button
           type="button"
-          onClick={() => onNavigate('windows-setup')}
+          onClick={onTriggerFolderImport}
           style={{ borderRadius: 'var(--zhd-radius)' }}
-          className={`px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
-            activeSection === 'windows-setup'
-              ? 'bg-[var(--zhd-text)] text-[var(--zhd-bg)]'
-              : 'bg-[var(--zhd-accent)] text-[var(--zhd-accent-fg)] hover:bg-[var(--zhd-accent-hover)]'
-          }`}
+          className="px-4 py-2 text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer transition-colors bg-[var(--zhd-accent)] text-[var(--zhd-accent-fg)] hover:bg-[var(--zhd-accent-hover)]"
         >
-          Windows Setup
+          Import Folder
         </button>
       </div>
     </header>

@@ -19,6 +19,7 @@ interface StoredLocalAsset {
   bitrate: string;
   fileName: string;
   fileSize: number;
+  folderName?: string;
   addedAt: number;
   blob: Blob;
 }
@@ -31,10 +32,6 @@ export function loadConfig(): ZhdConfig {
     return {
       ...DEFAULT_CONFIG,
       ...parsed,
-      windowsInstall: {
-        ...DEFAULT_CONFIG.windowsInstall,
-        ...(parsed.windowsInstall ?? {}),
-      },
       eqBands:
         Array.isArray(parsed.eqBands) && parsed.eqBands.length === 10
           ? parsed.eqBands
@@ -95,6 +92,7 @@ export async function loadLocalMediaItems(): Promise<MediaItem[]> {
           objectUrl: URL.createObjectURL(rec.blob),
           fileName: rec.fileName,
           fileSize: rec.fileSize,
+          folderName: rec.folderName,
           addedAt: rec.addedAt,
         }));
         resolve(items);
@@ -106,7 +104,7 @@ export async function loadLocalMediaItems(): Promise<MediaItem[]> {
   }
 }
 
-export async function saveLocalMediaFile(file: File): Promise<MediaItem> {
+export async function saveLocalMediaFile(file: File, folderName?: string): Promise<MediaItem> {
   const isVideo =
     file.type.startsWith('video/') ||
     /\.(mp4|webm|mkv|mov|avi|m4v)$/i.test(file.name);
@@ -115,7 +113,7 @@ export async function saveLocalMediaFile(file: File): Promise<MediaItem> {
   const cleanTitle = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
 
   // Attempt to split "Artist - Title" naming convention
-  let artist = 'Local Library';
+  let artist = folderName ? folderName : 'Local Library';
   let title = cleanTitle || file.name;
   if (cleanTitle.includes(' - ')) {
     const [maybeArtist, ...rest] = cleanTitle.split(' - ');
@@ -130,11 +128,12 @@ export async function saveLocalMediaFile(file: File): Promise<MediaItem> {
   const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+  const resolvedAlbum = folderName || (isVideo ? 'Local Videos' : 'Imported Music');
   const record: StoredLocalAsset = {
     id,
     title,
     artist,
-    album: isVideo ? 'Local Videos' : 'Imported Music',
+    album: resolvedAlbum,
     genre: isVideo ? 'Local Video' : 'Local Audio',
     year: new Date(file.lastModified || Date.now()).getFullYear(),
     duration: duration || 180,
@@ -143,6 +142,7 @@ export async function saveLocalMediaFile(file: File): Promise<MediaItem> {
     bitrate: `${sizeMb} MB`,
     fileName: file.name,
     fileSize: file.size,
+    folderName,
     addedAt: Date.now(),
     blob: file,
   };
@@ -175,6 +175,7 @@ export async function saveLocalMediaFile(file: File): Promise<MediaItem> {
     objectUrl,
     fileName: record.fileName,
     fileSize: record.fileSize,
+    folderName: record.folderName,
     addedAt: record.addedAt,
   };
 }

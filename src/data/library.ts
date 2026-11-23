@@ -216,17 +216,6 @@ export const EQ_PRESETS: EqPreset[] = [
   { id: 'rock', name: 'Classic Rock', gains: [4, 3, 1.5, -1, -1.5, 0.5, 2.5, 3.5, 4, 3] },
 ];
 
-export const ALL_FILE_ASSOCIATIONS = [
-  '.mp3',
-  '.flac',
-  '.wav',
-  '.ogg',
-  '.m4a',
-  '.mp4',
-  '.webm',
-  '.mkv',
-];
-
 export const DEFAULT_CONFIG: ZhdConfig = {
   colorSchemeId: 'zune-magenta',
   surfaceMode: 'dark',
@@ -241,21 +230,4 @@ export const DEFAULT_CONFIG: ZhdConfig = {
   volume: 0.8,
   favoriteIds: ['track-01', 'track-03', 'video-01'],
   recentIds: ['track-01', 'video-01', 'track-03', 'track-05'],
-  windowsInstall: {
-    installed: false,
-    installedAt: null,
-    edition: 'installer-exe',
-    architecture: 'x64',
-    installDir: 'C:\\Program Files\\ZHD2',
-    musicDir: 'C:\\Users\\%USERNAME%\\Music',
-    videoDir: 'C:\\Users\\%USERNAME%\\Videos',
-    assetsCacheDir: 'C:\\Users\\%USERNAME%\\AppData\\Local\\ZHD2\\Assets',
-    configDir: 'C:\\Users\\%USERNAME%\\AppData\\Roaming\\ZHD2',
-    fileAssociations: ['.mp3', '.flac', '.wav', '.mp4', '.webm'],
-    createDesktopShortcut: true,
-    createStartMenuShortcut: true,
-    launchOnWindowsStartup: false,
-    hardwareAcceleration: true,
-    taskbarThumbnailControls: true,
-  },
 };

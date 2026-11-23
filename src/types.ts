@@ -5,8 +5,7 @@ export type NavSection =
   | 'library'
   | 'now-playing'
   | 'equalizer'
-  | 'customize'
-  | 'windows-setup';
+  | 'customize';
 
 export type SurfaceMode = 'dark' | 'light';
 
@@ -38,6 +37,7 @@ export interface MediaItem {
   objectUrl?: string; // for local imported files
   fileName?: string;
   fileSize?: number;
+  folderName?: string;
   addedAt: number;
 }
 
@@ -59,24 +59,6 @@ export interface EqPreset {
   gains: number[]; // 10 bands: 32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, 16k
 }
 
-export interface WindowsInstallConfig {
-  installed: boolean;
-  installedAt: string | null;
-  edition: 'installer-exe' | 'portable-exe';
-  architecture: 'x64' | 'arm64';
-  installDir: string;
-  musicDir: string;
-  videoDir: string;
-  assetsCacheDir: string;
-  configDir: string;
-  fileAssociations: string[];
-  createDesktopShortcut: boolean;
-  createStartMenuShortcut: boolean;
-  launchOnWindowsStartup: boolean;
-  hardwareAcceleration: boolean;
-  taskbarThumbnailControls: boolean;
-}
-
 export interface ZhdConfig {
   colorSchemeId: string;
   surfaceMode: SurfaceMode;
@@ -91,7 +73,6 @@ export interface ZhdConfig {
   volume: number; // 0 to 1
   favoriteIds: string[];
   recentIds: string[];
-  windowsInstall: WindowsInstallConfig;
 }
 
 export interface Zhd2DesktopBridge {
@@ -100,13 +81,6 @@ export interface Zhd2DesktopBridge {
   selectFolder: (title: string) => Promise<string | null>;
   saveConfig: (config: ZhdConfig) => Promise<{ ok: boolean; path?: string }>;
   loadConfig: () => Promise<ZhdConfig | null>;
-  getDefaultPaths: () => Promise<{
-    installDir: string;
-    musicDir: string;
-    videoDir: string;
-    assetsCacheDir: string;
-    configDir: string;
-  }>;
   scanMediaFolder: (folderPath: string) => Promise<
     Array<{
       name: string;

@@ -1,4 +1,4 @@
-# ZHD2 Media Player — Windows EXE Build Script
+# ZHD2 Media Player — Windows Standalone EXE Build Script
 # Run in PowerShell on Windows 10/11 with Node.js 20+ installed:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\build-windows-exe.ps1
 
@@ -17,8 +17,8 @@ npm install -D electron electron-builder
 Write-Host "`n[3/4] Building ZHD2 web bundle (Vite)..." -ForegroundColor Cyan
 npm run build
 
-Write-Host "`n[4/4] Packaging Windows Installer (.exe) and Portable (.exe)..." -ForegroundColor Cyan
-npx electron-builder --win --config electron-builder.yml
+Write-Host "`n[4/4] Packaging standalone Windows executable (.exe)..." -ForegroundColor Cyan
+npx electron-builder --win portable --config electron-builder.yml
 
-Write-Host "`nDone! Your Windows executables are located in .\release\" -ForegroundColor Green
+Write-Host "`nDone! Your Windows executable is located in .\release\" -ForegroundColor Green
 Get-ChildItem .\release\*.exe | ForEach-Object { Write-Host "  -> $($_.FullName)" -ForegroundColor Yellow }

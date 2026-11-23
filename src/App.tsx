@@ -14,7 +14,6 @@ import { QuickplayHub } from './components/QuickplayHub';
 import { ScreensaverOverlay } from './components/ScreensaverOverlay';
 import { TopBar } from './components/TopBar';
 import { TransportBar } from './components/TransportBar';
-import { WindowsWizardView } from './components/WindowsWizardView';
 import { BUILTIN_MEDIA, EQ_PRESETS } from './data/library';
 import { getColorScheme } from './data/themes';
 import {
@@ -25,11 +24,13 @@ import {
   saveLocalMediaFile,
 } from './storage/localStore';
 import { MediaItem, NavSection, RepeatMode, ZhdConfig } from './types';
+import { extractFilesFromFileList, ImportedFileEntry } from './utils/folderImport';
 
 export default function App() {
   const [config, setConfig] = useState<ZhdConfig>(() => loadConfig());
   const [localItems, setLocalItems] = useState<MediaItem[]>([]);
   const [activeSection, setActiveSection] = useState<NavSection>('quickplay');
+  const [importNotice, setImportNotice] = useState<string | null>(null);
 
   const mediaItems = useMemo(() => [...localItems, ...BUILTIN_MEDIA], [localItems]);
 
@@ -48,7 +49,9 @@ export default function App() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const loadedMediaKeyRef = useRef<string>('');
+  const noticeTimerRef = useRef<number | null>(null);
 
   const currentItem = useMemo(
     () => mediaItems.find((m) => m.id === currentId) ?? BUILTIN_MEDIA[0],
@@ -59,6 +62,14 @@ export default function App() {
 
   const usesVideoElement = currentItem.type === 'video' && currentItem.source === 'local';
 
+  // Ensure webkitdirectory / directory attributes are applied to the hidden folder input
+  useEffect(() => {
+    const input = folderInputRef.current;
+    if (!input) return;
+    input.setAttribute('webkitdirectory', '');
+    input.setAttribute('directory', '');
+  }, []);
+
   // Hydrate persisted local IndexedDB media files & Electron config on mount
   useEffect(() => {
     void loadLocalMediaItems().then((items) => {
@@ -68,15 +79,6 @@ export default function App() {
     if (window.zhd2Desktop?.isDesktop) {
       void window.zhd2Desktop.loadConfig().then((desktopCfg) => {
         if (desktopCfg) setConfig((prev) => ({ ...prev, ...desktopCfg }));
-      });
-      void window.zhd2Desktop.getDefaultPaths().then((paths) => {
-        setConfig((prev) => ({
-          ...prev,
-          windowsInstall: {
-            ...prev.windowsInstall,
-            ...paths,
-          },
-        }));
       });
     }
   }, []);
@@ -118,6 +120,14 @@ export default function App() {
       config.stereoBalance
     );
   }, [config.eqEnabled, config.eqBands, config.preampDb, config.stereoBalance]);
+
+  const showImportNotice = useCallback((message: string) => {
+    setImportNotice(message);
+    if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => {
+      setImportNotice(null);
+    }, 4000);
+  }, []);
 
   const updateConfig = useCallback((patch: Partial<ZhdConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
@@ -228,7 +238,6 @@ export default function App() {
       el.pause();
       setIsPlaying(false);
     } else {
-      // Ensure src is populated on very first play
       if (!el.src) {
         const srcUrl =
           currentItem.source === 'local' && currentItem.objectUrl
@@ -342,25 +351,50 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleTogglePlay]);
 
-  const handleImportFiles = useCallback(
-    async (files: FileList | null): Promise<number> => {
-      if (!files || files.length === 0) return 0;
+  const handleImportEntries = useCallback(
+    async (entries: ImportedFileEntry[]): Promise<number> => {
+      if (entries.length === 0) {
+        showImportNotice('No supported audio or video files found in the selection.');
+        return 0;
+      }
+
       const imported: MediaItem[] = [];
-      for (const file of Array.from(files)) {
-        const item = await saveLocalMediaFile(file);
+      for (const entry of entries) {
+        const item = await saveLocalMediaFile(entry.file, entry.folderName);
         imported.push(item);
       }
+
       if (imported.length > 0) {
         setLocalItems((prev) => [...imported, ...prev]);
-        // Auto-select first imported item if user imported from Library or Quickplay
-        if (activeSection !== 'windows-setup') {
-          handleSelectTrack(imported[0], imported[0].type === 'video');
-        }
+        const uniqueFolders = Array.from(
+          new Set(entries.map((e) => e.folderName).filter(Boolean))
+        );
+        const label =
+          uniqueFolders.length === 1
+            ? `Imported ${imported.length} media ${imported.length === 1 ? 'file' : 'files'} from "${uniqueFolders[0]}"`
+            : uniqueFolders.length > 1
+            ? `Imported ${imported.length} media files across ${uniqueFolders.length} folders`
+            : `Imported ${imported.length} local media ${imported.length === 1 ? 'file' : 'files'}`;
+        showImportNotice(label);
+        handleSelectTrack(imported[0], imported[0].type === 'video');
       }
+
       return imported.length;
     },
-    [activeSection, handleSelectTrack]
+    [handleSelectTrack, showImportNotice]
   );
+
+  const handleImportFiles = useCallback(
+    async (files: FileList | null): Promise<number> => {
+      const entries = extractFilesFromFileList(files);
+      return handleImportEntries(entries);
+    },
+    [handleImportEntries]
+  );
+
+  const handleTriggerFolderImport = useCallback(() => {
+    folderInputRef.current?.click();
+  }, []);
 
   const handleDeleteLocalItem = useCallback(
     (id: string) => {
@@ -414,8 +448,41 @@ export default function App() {
       {/* Shared hidden HTMLAudioElement for music and built-in video soundtracks */}
       <audio ref={audioRef} preload="metadata" crossOrigin="anonymous" />
 
+      {/* Shared hidden folder picker supporting nested directories */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void handleImportFiles(e.target.files);
+          e.currentTarget.value = '';
+        }}
+      />
+
       {/* Top 3-Zone Navigation Bar */}
-      <TopBar activeSection={activeSection} onNavigate={setActiveSection} />
+      <TopBar
+        activeSection={activeSection}
+        onNavigate={setActiveSection}
+        onTriggerFolderImport={handleTriggerFolderImport}
+      />
+
+      {/* Quiet feedback bar after importing files or folders */}
+      {importNotice && (
+        <div
+          role="status"
+          className="px-6 py-2 bg-[var(--zhd-surface-2)] border-b border-[var(--zhd-border)] flex items-center justify-between text-xs text-[var(--zhd-text)]"
+        >
+          <span>{importNotice}</span>
+          <button
+            type="button"
+            onClick={() => setImportNotice(null)}
+            className="text-[var(--zhd-muted)] hover:text-[var(--zhd-text)] cursor-pointer ml-4"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Viewport Workspace */}
       <main className="flex-1 min-h-0 overflow-hidden">
@@ -431,6 +498,7 @@ export default function App() {
             onImportFiles={(files) => {
               void handleImportFiles(files);
             }}
+            onTriggerFolderImport={handleTriggerFolderImport}
             onLaunchScreensaver={() => setScreensaverActive(true)}
           />
         )}
@@ -446,6 +514,10 @@ export default function App() {
             onImportFiles={(files) => {
               void handleImportFiles(files);
             }}
+            onImportEntries={(entries) => {
+              void handleImportEntries(entries);
+            }}
+            onTriggerFolderImport={handleTriggerFolderImport}
             onDeleteLocalItem={handleDeleteLocalItem}
           />
         )}
@@ -493,16 +565,6 @@ export default function App() {
             config={config}
             onUpdateConfig={updateConfig}
             onLaunchScreensaver={() => setScreensaverActive(true)}
-          />
-        )}
-
-        {activeSection === 'windows-setup' && (
-          <WindowsWizardView
-            config={config}
-            mediaItems={mediaItems}
-            onUpdateConfig={updateConfig}
-            onImportFiles={handleImportFiles}
-            onFinishAndLaunch={() => setActiveSection('quickplay')}
           />
         )}
       </main>

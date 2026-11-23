@@ -13,21 +13,10 @@ extraMetadata:
   main: electron/main.cjs
 win:
   target:
-    - target: nsis
-      arch:
-        - x64
-        - arm64
     - target: portable
       arch:
         - x64
-  artifactName: ZHD2-Setup-${version}-${arch}.${ext}
-nsis:
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  shortcutName: ZHD2 Media Player
-  include: electron/installer.nsh
+        - arm64
+  artifactName: ZHD2-${version}-${arch}.${ext}
 portable:
-  artifactName: ZHD2-Portable-${version}.exe
+  artifactName: ZHD2-${version}-${arch}.exe
