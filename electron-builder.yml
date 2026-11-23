@@ -1,0 +1,33 @@
+appId: com.zhd2.mediaplayer
+productName: ZHD2 Media Player
+copyright: Copyright © 2026 ZHD2 Project
+directories:
+  output: release
+  buildResources: electron
+files:
+  - dist/**/*
+  - electron/main.cjs
+  - electron/preload.cjs
+  - package.json
+extraMetadata:
+  main: electron/main.cjs
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - arm64
+    - target: portable
+      arch:
+        - x64
+  artifactName: ZHD2-${version}-${arch}-${target}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ZHD2 Media Player
+  include: electron/installer.nsh
+portable:
+  artifactName: ZHD2-Portable-${version}.exe

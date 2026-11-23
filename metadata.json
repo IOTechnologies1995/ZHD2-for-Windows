@@ -1,0 +1,6 @@
+{
+  "name": "ZHD2 Media Player",
+  "description": "Zune 30GB, Zune HD, and Windows 8 Metro-inspired music and video player with a 10-band equalizer, Now Playing screensavers, and a Windows EXE installation wizard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
