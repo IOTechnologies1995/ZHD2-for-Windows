@@ -1,0 +1,56 @@
+name: Build ZHD2 for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'electron/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'electron-builder.yml'
+      - 'tsconfig.json'
+      - 'index.html'
+      - '.github/workflows/build-windows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund electron electron-builder
+
+      - name: Build application
+        run: npm run build
+
+      - name: Package Windows x64 installer
+        run: npx electron-builder --win nsis --x64 --config electron-builder.yml --publish never
+
+      - name: Package Windows x64 portable EXE
+        run: npx electron-builder --win portable --x64 --config electron-builder.yml --publish never
+
+      - name: Upload Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZHD2-Windows-x64
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14
