@@ -20,7 +20,7 @@ win:
     - target: portable
       arch:
         - x64
-  artifactName: ZHD2-${version}-${arch}-${target}.${ext}
+  artifactName: ZHD2-Setup-${version}-${arch}.${ext}
 nsis:
   oneClick: false
   perMachine: false
